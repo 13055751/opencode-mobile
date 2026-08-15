@@ -55,7 +55,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String get _serverLabel {
     final p = (0 == (_config.port ?? 0)) ? '' : ':${_config.port}';
     final scheme = _config.useHttps ? 'https' : 'http';
-    return '$_scheme://${_config.host}$p';
+    return '$scheme://${_config.host}$p';
   }
 
   @override
