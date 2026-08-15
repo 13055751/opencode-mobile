@@ -5,7 +5,7 @@ class Session {
   final String? title;
   final String? agent;
   final String? directory;
-  final String? summary;
+  final dynamic summary;
   final Map<String, dynamic>? time;
   final int? cost;
   final bool? archived;
@@ -26,15 +26,28 @@ class Session {
         title: j['title'] as String?,
         agent: j['agent'] as String?,
         directory: j['directory'] as String?,
-        summary: j['summary'] as String?,
-        time: j['time'] as Map<String, dynamic>?,
-        cost: j['cost'] as int?,
+        summary: j['summary'],
+        time: _asMap(j['time']),
+        cost: j['cost'] is num ? (j['cost'] as num).toInt() : null,
         archived: j['archived'] as bool?,
       );
 
+  static Map<String, dynamic>? _asMap(dynamic v) =>
+      v is Map<String, dynamic> ? v : null;
+
   String get displayTitle {
-    if (title != null && title!.isNotEmpty) return title!;
-    if (summary != null && summary!.isNotEmpty) return summary!;
+    final t = title;
+    if (t != null && t.isNotEmpty) return t;
+    final s = summary;
+    if (s is String && s.isNotEmpty) return s;
+    if (s is Map<String, dynamic>) {
+      final f = s['files'];
+      final a = s['additions'];
+      final d = s['deletions'];
+      if (f is num) {
+        return '+$a −$d · $f file${f == 1 ? '' : 's'}';
+      }
+    }
     return 'New session';
   }
 
