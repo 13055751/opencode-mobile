@@ -73,32 +73,37 @@ class SplashGate extends StatefulWidget {
 }
 
 class _SplashGateState extends State<SplashGate> {
-  late Future<AppConfig> _configFuture;
+  AppConfig? _config;
 
   @override
   void initState() {
     super.initState();
-    _configFuture = _load();
+    _load();
   }
 
-  Future<AppConfig> _load() async {
+  Future<void> _load() async {
     final p = await SharedPreferences.getInstance();
-    return AppConfig.fromPrefs(p);
+    final config = AppConfig.fromPrefs(p);
+    if (mounted) setState(() => _config = config);
+  }
+
+  void _onConfigChanged(AppConfig config) {
+    setState(() => _config = config);
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<AppConfig>(
-      future: _configFuture,
-      builder: (context, snap) {
-        if (snap.connectionState != ConnectionState.done) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-        final config = snap.data ?? AppConfig();
-        return HomeScreen(config: config);
-      },
+    final config = _config;
+    if (config == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(
+        textScaler: TextScaler.linear(config.fontScale),
+      ),
+      child: HomeScreen(config: config, onConfigChanged: _onConfigChanged),
     );
   }
 }

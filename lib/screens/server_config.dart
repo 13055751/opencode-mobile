@@ -41,6 +41,7 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
         port: int.tryParse(_port.text.trim()),
         password: _password.text,
         useHttps: _https,
+        fontScale: widget.config.fontScale,
       );
 
   Future<void> _save() async {

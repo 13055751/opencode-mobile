@@ -4,11 +4,12 @@ import '../api.dart';
 import '../config.dart';
 import '../models.dart';
 import 'chat.dart';
-import 'server_config.dart';
+import 'settings.dart';
 
 class HomeScreen extends StatefulWidget {
   final AppConfig config;
-  const HomeScreen({super.key, required this.config});
+  final ValueChanged<AppConfig> onConfigChanged;
+  const HomeScreen({super.key, required this.config, required this.onConfigChanged});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -62,9 +63,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _openConfig() async {
     final result = await Navigator.of(context).push<AppConfig>(
-      MaterialPageRoute(builder: (_) => ServerConfigScreen(config: widget.config)),
+      MaterialPageRoute(builder: (_) => SettingsScreen(config: widget.config)),
     );
-    if (result != null) {
+    if (result != null && mounted) {
+      widget.onConfigChanged(result);
       setState(() {
         _api = OpenCodeApi(baseUrl: result.baseUrl, password: result.password);
       });
