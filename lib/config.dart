@@ -1,0 +1,39 @@
+import 'package:shared_preferences/shared_preferences.dart';
+
+class AppConfig {
+  static const _kHost = 'oc_host';
+  static const _kPort = 'oc_port';
+  static const _kPassword = 'oc_password';
+  static const _kUseHttps = 'oc_https';
+
+  String host;
+  int port;
+  String password;
+  bool useHttps;
+
+  AppConfig({
+    this.host = '127.0.0.1',
+    this.port = 4096,
+    this.password = '',
+    this.useHttps = false,
+  });
+
+  String get baseUrl {
+    final scheme = useHttps ? 'https' : 'http';
+    return '$scheme://$host:$port';
+  }
+
+  factory AppConfig.fromPrefs(SharedPreferences p) => AppConfig(
+        host: p.getString(_kHost) ?? '127.0.0.1',
+        port: p.getInt(_kPort) ?? 4096,
+        password: p.getString(_kPassword) ?? '',
+        useHttps: p.getBool(_kUseHttps) ?? false,
+      );
+
+  Future<void> save(SharedPreferences p) async {
+    await p.setString(_kHost, host);
+    await p.setInt(_kPort, port);
+    await p.setString(_kPassword, password);
+    await p.setBool(_kUseHttps, useHttps);
+  }
+}
