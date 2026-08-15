@@ -7,7 +7,7 @@ class AppConfig {
   static const _kUseHttps = 'oc_https';
 
   String host;
-  int port;
+  int? port;
   String password;
   bool useHttps;
 
@@ -20,19 +20,20 @@ class AppConfig {
 
   String get baseUrl {
     final scheme = useHttps ? 'https' : 'http';
-    return '$scheme://$host:$port';
+    final p = (port == null || port == 0) ? '' : ':$port';
+    return '$scheme://$host$p';
   }
 
   factory AppConfig.fromPrefs(SharedPreferences p) => AppConfig(
         host: p.getString(_kHost) ?? '127.0.0.1',
-        port: p.getInt(_kPort) ?? 4096,
+        port: p.getInt(_kPort),
         password: p.getString(_kPassword) ?? '',
         useHttps: p.getBool(_kUseHttps) ?? false,
       );
 
   Future<void> save(SharedPreferences p) async {
     await p.setString(_kHost, host);
-    await p.setInt(_kPort, port);
+    await p.setInt(_kPort, port ?? 0);
     await p.setString(_kPassword, password);
     await p.setBool(_kUseHttps, useHttps);
   }

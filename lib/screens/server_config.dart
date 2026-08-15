@@ -23,7 +23,7 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
   void initState() {
     super.initState();
     _host = TextEditingController(text: widget.config.host);
-    _port = TextEditingController(text: widget.config.port.toString());
+    _port = TextEditingController(text: (widget.config.port ?? 0) == 0 ? '' : widget.config.port.toString());
     _password = TextEditingController(text: widget.config.password);
     _https = widget.config.useHttps;
   }
@@ -38,7 +38,7 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
 
   AppConfig _build() => AppConfig(
         host: _host.text.trim(),
-        port: int.tryParse(_port.text.trim()) ?? 4096,
+        port: int.tryParse(_port.text.trim()),
         password: _password.text,
         useHttps: _https,
       );
@@ -86,10 +86,10 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
             style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 6),
-          const Text(
-            '在电脑上运行 opencode web --hostname 0.0.0.0 --port 4096，\n手机与本机连同一 WiFi 后填写本机局域网 IP。',
-            style: TextStyle(color: Colors.white38, fontSize: 13, height: 1.4),
-          ),
+            const Text(
+              '在电脑上运行 opencode web --hostname 0.0.0.0 --port 4096，\n手机与本机连同一 WiFi 后填写本机局域网 IP。\n端口留空表示使用默认端口（HTTPS 443 / HTTP 80）。',
+              style: TextStyle(color: Colors.white38, fontSize: 13, height: 1.4),
+            ),
           const SizedBox(height: 20),
           TextField(
             controller: _host,
@@ -108,7 +108,8 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
                 child: TextField(
                   controller: _port,
                   decoration: const InputDecoration(
-                    labelText: '端口',
+                    labelText: '端口 (可选)',
+                    hintText: '留空则用默认端口',
                     prefixIcon: Icon(Icons.tag),
                   ),
                   keyboardType: TextInputType.number,
