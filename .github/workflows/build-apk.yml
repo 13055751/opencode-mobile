@@ -21,7 +21,25 @@ jobs:
           channel: stable
           cache: true
 
-      - run: flutter pub get
+      - name: Prepare Gradle distribution locally
+        shell: bash
+        run: |
+          set -e
+          echo "=== proxy env ==="
+          env | grep -iE "proxy" || echo "(no proxy env)"
+          echo "=== connectivity check ==="
+          curl -sS --max-time 15 -o /dev/null -w "tencent: %{http_code} %{time_connect}s\n" \
+            https://mirrors.cloud.tencent.com/gradle/gradle-9.3.1-all.zip || echo "tencent FAIL"
+          curl -sS --max-time 15 -o /dev/null -w "services.gradle.org: %{http_code} %{time_connect}s\n" \
+            https://services.gradle.org/distributions/gradle-9.3.1-all.zip || echo "services FAIL"
+          echo "=== predownload gradle via curl ==="
+          curl -sSL --retry 3 --max-time 300 -o "$HOME/gradle-9.3.1-all.zip" \
+            https://mirrors.cloud.tencent.com/gradle/gradle-9.3.1-all.zip
+          ls -la "$HOME/gradle-9.3.1-all.zip"
+          sed -i "s#^distributionUrl=.*#distributionUrl=file\\:///${HOME}/gradle-9.3.1-all.zip#" \
+            android/gradle/wrapper/gradle-wrapper.properties
+          echo "=== updated wrapper properties ==="
+          cat android/gradle/wrapper/gradle-wrapper.properties
 
       - run: flutter build apk --release
 
