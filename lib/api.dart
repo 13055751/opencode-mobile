@@ -46,10 +46,10 @@ class OpenCodeApi {
     return jsonDecode(utf8.decode(res.bodyBytes));
   }
 
-  Future<dynamic> _post(String path, [Object? body]) async {
+  Future<dynamic> _post(String path, [Object? body, Map<String, String>? q]) async {
     final res = await _client
         .post(
-          _uri(path),
+          _uri(path, q),
           headers: {..._headers, 'Content-Type': 'application/json'},
           body: body == null ? null : jsonEncode(body),
         )
@@ -89,17 +89,41 @@ class OpenCodeApi {
     return [];
   }
 
-  Future<Session> createSession({String? parentID, String? title}) async {
+  Future<Session> createSession({String? parentID, String? title, String? directory}) async {
     final data = await _post('/session', {
       'parentID': ?parentID,
       'title': ?title,
-    });
+    }, directory == null ? null : {'directory': directory});
     return Session.fromJson(data as Map<String, dynamic>);
   }
 
   Future<Session> getSession(String id) async {
     final data = await _get('/session/$id');
     return Session.fromJson(data as Map<String, dynamic>);
+  }
+
+  /// Lists a directory on the server. [directory] is the absolute workspace
+  /// directory, [path] is a relative sub-path within it.
+  Future<List<FileEntry>> listFiles(String directory, {String path = ''}) async {
+    final data = await _get('/file', {
+      'directory': directory,
+      if (path.isNotEmpty) 'path': path,
+    });
+    final list = data is List
+        ? data
+        : (data is Map && data['data'] is List ? data['data'] as List : []);
+    return list
+        .whereType<Map<String, dynamic>>()
+        .map(FileEntry.fromJson)
+        .toList();
+  }
+
+  /// Creates a directory on the server via a one-shot PTY mkdir command.
+  Future<void> createDirectory(String absolutePath) async {
+    await _post('/pty', {
+      'command': 'mkdir',
+      'args': ['-p', absolutePath],
+    });
   }
 
   Future<List<ChatMessage>> listMessages(String sessionID, {int limit = 100}) async {
@@ -114,7 +138,11 @@ class OpenCodeApi {
   }
 
   Future<void> sendMessage(String sessionID, String prompt) async {
-    await _post('/session/$sessionID/message', {'prompt': prompt});
+    await _post('/session/$sessionID/message', {
+      'parts': [
+        {'type': 'text', 'text': prompt}
+      ]
+    });
   }
 
   Future<void> abort(String sessionID) async {
@@ -137,11 +165,11 @@ class OpenCodeApi {
   }
 
   Future<void> answerQuestion(String sessionID, String requestID, List<List<String>> answers) async {
-    await _post('/api/session/$sessionID/question/$requestID/reply', {'answers': answers});
+    await _post('/question/$requestID/reply', {'answers': answers});
   }
 
   Future<void> rejectQuestion(String sessionID, String requestID) async {
-    await _post('/api/session/$sessionID/question/$requestID/reject');
+    await _post('/question/$requestID/reject');
   }
 
   /// Opens an SSE stream to /global/event. Events are delivered as parsed maps.

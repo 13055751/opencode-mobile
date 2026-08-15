@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api.dart';
 import '../config.dart';
 import '../models.dart';
+import '../widgets/directory_picker.dart';
 import 'chat.dart';
 import 'settings.dart';
 
@@ -75,8 +76,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _newSession() async {
+    final result = await showDialog<_NewSessionInput>(
+      context: context,
+      builder: (ctx) => _NewSessionDialog(api: _api),
+    );
+    if (result == null || !mounted) return;
     try {
-      final s = await _api.createSession();
+      final s = await _api.createSession(title: result.title, directory: result.directory);
       if (!mounted) return;
       _sessions.insert(0, s);
       await _openChat(s);
@@ -232,5 +238,94 @@ class _HomeScreenState extends State<HomeScreen> {
     if (day == today) return '${two(local.hour)}:${two(local.minute)}';
     if (day == today.subtract(const Duration(days: 1))) return '昨天';
     return '${local.month}/${local.day}';
+  }
+}
+
+class _NewSessionInput {
+  final String? title;
+  final String? directory;
+  _NewSessionInput({this.title, this.directory});
+}
+
+class _NewSessionDialog extends StatefulWidget {
+  final OpenCodeApi api;
+  const _NewSessionDialog({required this.api});
+
+  @override
+  State<_NewSessionDialog> createState() => _NewSessionDialogState();
+}
+
+class _NewSessionDialogState extends State<_NewSessionDialog> {
+  final _titleCtrl = TextEditingController();
+  final _dirCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _dirCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _browse() async {
+    final picked = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => DirectoryPickerPage(
+          api: widget.api,
+          initialDirectory: _dirCtrl.text.trim().isEmpty ? '/' : _dirCtrl.text.trim(),
+        ),
+      ),
+    );
+    if (picked != null && mounted) {
+      _dirCtrl.text = picked;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('新会话'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _titleCtrl,
+            decoration: const InputDecoration(
+              labelText: '会话标题（可选）',
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _dirCtrl,
+            decoration: InputDecoration(
+              labelText: '工作目录（可选）',
+              hintText: '服务器上的绝对路径',
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.folder_open_outlined),
+                tooltip: '浏览服务器目录',
+                onPressed: _browse,
+              ),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final dir = _dirCtrl.text.trim();
+            Navigator.of(context).pop(
+              _NewSessionInput(
+                title: _titleCtrl.text.trim().isEmpty ? null : _titleCtrl.text.trim(),
+                directory: dir.isEmpty ? null : dir,
+              ),
+            );
+          },
+          child: const Text('创建'),
+        ),
+      ],
+    );
   }
 }

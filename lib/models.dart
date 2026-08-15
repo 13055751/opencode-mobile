@@ -190,6 +190,29 @@ class ChatMessage {
   }
 }
 
+class FileEntry {
+  final String name;
+  final String path;
+  final String absolute;
+  final String type;
+  final bool ignored;
+  FileEntry({
+    required this.name,
+    required this.path,
+    required this.absolute,
+    required this.type,
+    this.ignored = false,
+  });
+  factory FileEntry.fromJson(Map<String, dynamic> j) => FileEntry(
+        name: j['name'] as String? ?? '',
+        path: j['path'] as String? ?? '',
+        absolute: j['absolute'] as String? ?? '',
+        type: j['type'] as String? ?? 'file',
+        ignored: j['ignored'] == true,
+      );
+  bool get isDir => type == 'directory';
+}
+
 class QuestionOption {
   final String label;
   final String? description;
