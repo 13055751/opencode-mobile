@@ -149,7 +149,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           IconButton(
             onPressed: _pickSession,
-            icon: const Icon(Icons.tab_add_outlined),
+            icon: const Icon(Icons.tab_new_outlined),
             tooltip: '打开会话',
           ),
           IconButton(
@@ -187,7 +187,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontSize: 12),
                           ),
-                          onPressed: () {
+                          onSelected: (_) {
                             _pane.pauseStream();
                             setState(() => _current = i);
                             WidgetsBinding.instance.addPostFrameCallback((_) => _pane.resumeStream());

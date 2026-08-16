@@ -137,11 +137,11 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() => _projectDir = null);
         await _refresh();
         break;
-      case _ProjectAction choose(:final dir):
+      case _ProjectAction.choose(final dir):
         setState(() => _projectDir = dir);
         await _refresh();
         break;
-      case _ProjectAction remove(:final dir):
+      case _ProjectAction.remove(final dir):
         setState(() {
           final list = [...widget.config.projects]..remove(dir);
           _saveProjects(list);

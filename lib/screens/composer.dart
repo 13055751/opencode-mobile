@@ -64,7 +64,7 @@ class ChatActionsSheet extends StatelessWidget {
                 try {
                   await api.deleteSession(session.id);
                   if (context.mounted) Navigator.of(context).pop();
-                  widget.onDeleted?.call();
+                  onDeleted?.call();
                 } catch (e) {
                   if (context.mounted) {
                     Navigator.pop(context);
@@ -112,8 +112,8 @@ class Composer extends StatefulWidget {
 class _ComposerState extends State<Composer> {
   final TextEditingController _controller = TextEditingController();
   final List<Map<String, dynamic>> _attachments = [];
-  List<dynamic> _commands = [];
-  List<dynamic> _agents = [];
+  List<Map<String, dynamic>> _commands = [];
+  List<Map<String, dynamic>> _agents = [];
   bool _commandsLoaded = false;
   String _match = ''; // current prefix match: for / or @
 

@@ -255,7 +255,9 @@ class OpenCodeApi {
   /// Lists configured providers + models (GET /provider).
   Future<(List<Map<String, dynamic>>, Map<String, dynamic>)> listModels() async {
     final data = await _get('/provider');
-    if (data is! Map<String, dynamic>) return (<Map<String, dynamic>>[], {});
+    if (data is! Map<String, dynamic>) {
+      return (<Map<String, dynamic>>[], <String, dynamic>{});
+    }
     final all = (data['all'] as List<dynamic>? ?? [])
         .whereType<Map<String, dynamic>>()
         .toList();
