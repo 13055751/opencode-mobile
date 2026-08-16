@@ -149,7 +149,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           IconButton(
             onPressed: _pickSession,
-            icon: const Icon(Icons.tab_new_outlined),
+            icon: const Icon(Icons.add_box_outlined),
             tooltip: '打开会话',
           ),
           IconButton(

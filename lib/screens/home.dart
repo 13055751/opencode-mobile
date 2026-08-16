@@ -64,7 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _selectProject() async {
-    final result = await showModalBottomSheet<_ProjectAction?>(
+    final result = await showModalBottomSheet<(String, _ProjectAction)?>(
       context: context,
       builder: (ctx) => SafeArea(
         child: ListView(
@@ -98,29 +98,30 @@ class _HomeScreenState extends State<HomeScreen> {
                       : IconButton(
                           icon: const Icon(Icons.close, size: 16, color: Colors.white24),
                           tooltip: '移除',
-                          onPressed: () => Navigator.of(ctx).pop(_ProjectAction.remove(p)),
+                          onPressed: () => Navigator.of(ctx).pop((p, _ProjectAction.remove)),
                         ),
-                  onTap: () => Navigator.of(ctx).pop(_ProjectAction.choose(p)),
+                  onTap: () => Navigator.of(ctx).pop((p, _ProjectAction.choose)),
                 ),
             ],
             ListTile(
               leading: const Icon(Icons.folder_open_outlined),
               title: const Text('浏览服务器目录'),
               subtitle: Text(_projectDir ?? '还没选择项目，显示全部会话'),
-              onTap: () => Navigator.of(ctx).pop(_ProjectAction.browse),
+              onTap: () => Navigator.of(ctx).pop((null, _ProjectAction.browse)),
             ),
             if (_projectDir != null)
               ListTile(
                 leading: const Icon(Icons.clear_all_outlined),
                 title: const Text('显示全部会话'),
-                onTap: () => Navigator.of(ctx).pop(_ProjectAction.all),
+                onTap: () => Navigator.of(ctx).pop((null, _ProjectAction.all)),
               ),
           ],
         ),
       ),
     );
     if (!mounted || result == null) return;
-    switch (result) {
+    final (dir, action) = result;
+    switch (action) {
       case _ProjectAction.browse:
         final picked = await Navigator.of(context).push<String>(
           MaterialPageRoute(
@@ -137,11 +138,11 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() => _projectDir = null);
         await _refresh();
         break;
-      case _ProjectAction.choose(final dir):
+      case _ProjectAction.choose:
         setState(() => _projectDir = dir);
         await _refresh();
         break;
-      case _ProjectAction.remove(final dir):
+      case _ProjectAction.remove:
         setState(() {
           final list = [...widget.config.projects]..remove(dir);
           _saveProjects(list);
@@ -397,8 +398,8 @@ class _NewSessionInput {
 enum _ProjectAction {
   browse,
   all,
-  choose(String dir),
-  remove(String dir);
+  choose,
+  remove;
 }
 
 class _NewSessionDialog extends StatefulWidget {
