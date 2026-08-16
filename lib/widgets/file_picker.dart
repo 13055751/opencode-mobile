@@ -46,7 +46,7 @@ class _ServerFilePickerPageState extends State<ServerFilePickerPage> {
         _loading = false;
       });
     } catch (e) {
-      AppLog.instance.error('picker', 'list files $dir failed: $e');
+      AppLog.instance.error('picker', 'list files $_current failed: $e');
       if (!mounted) return;
       setState(() {
         _loading = false;
