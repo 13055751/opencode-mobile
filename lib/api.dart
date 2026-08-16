@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'logs.dart';
 import 'models.dart';
 
 class OpenCodeException implements Exception {
@@ -35,37 +36,90 @@ class OpenCodeApi {
     return u.replace(queryParameters: q);
   }
 
+  void _log(String method, String path, Map<String, String>? q, int status,
+      [String detail = '']) {
+    final query = (q == null || q.isEmpty)
+        ? ''
+        : '?${q.entries.map((e) => '${e.key}=${e.value}').join('&')}';
+    final suffix = detail.isEmpty ? '' : ' $detail';
+    AppLog.instance.http('api', '$method $path$query → $status$suffix');
+  }
+
   Future<dynamic> _get(String path, [Map<String, String>? q]) async {
-    final res = await _client.get(_uri(path, q), headers: _headers).timeout(
-          const Duration(seconds: 15),
-          onTimeout: () => throw OpenCodeException('Connection timeout'),
-        );
-    if (res.statusCode != 200) {
-      throw OpenCodeException('HTTP ${res.statusCode}: ${res.body}', statusCode: res.statusCode);
+    try {
+      final res = await _client.get(_uri(path, q), headers: _headers).timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw OpenCodeException('Connection timeout'),
+          );
+      if (res.statusCode != 200) {
+        _log('GET', path, q, res.statusCode, res.body);
+        throw OpenCodeException('HTTP ${res.statusCode}: ${res.body}',
+            statusCode: res.statusCode);
+      }
+      _log('GET', path, q, res.statusCode);
+      return jsonDecode(utf8.decode(res.bodyBytes));
+    } catch (e) {
+      if (e is! OpenCodeException) {
+        AppLog.instance.error('api', 'GET $path error: $e');
+      }
+      rethrow;
     }
-    return jsonDecode(utf8.decode(res.bodyBytes));
   }
 
   Future<dynamic> _post(String path, [Object? body, Map<String, String>? q]) async {
-    final res = await _client
-        .post(
-          _uri(path, q),
-          headers: {..._headers, 'Content-Type': 'application/json'},
-          body: body == null ? null : jsonEncode(body),
-        )
-        .timeout(const Duration(seconds: 15));
-    final text = utf8.decode(res.bodyBytes);
-    if (res.statusCode != 200 && res.statusCode != 201) {
-      throw OpenCodeException('HTTP ${res.statusCode}: $text', statusCode: res.statusCode);
+    String? _bodyPreview() {
+      if (body == null) return null;
+      try {
+        final s = utf8.decode(utf8.encode(jsonEncode(body)));
+        return s.length > 500 ? '${s.substring(0, 500)}…' : s;
+      } catch (_) {
+        return null;
+      }
     }
-    if (text.isEmpty) return null;
-    return jsonDecode(text);
+
+    try {
+      final res = await _client
+          .post(
+            _uri(path, q),
+            headers: {..._headers, 'Content-Type': 'application/json'},
+            body: body == null ? null : jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 15));
+      final text = utf8.decode(res.bodyBytes);
+      if (res.statusCode != 200 && res.statusCode != 201) {
+        _log('POST', path, q, res.statusCode, text);
+        throw OpenCodeException('HTTP ${res.statusCode}: $text',
+            statusCode: res.statusCode);
+      }
+      _log('POST', path, q, res.statusCode, _bodyPreview() ?? '');
+      if (text.isEmpty) return null;
+      try {
+        return jsonDecode(text);
+      } catch (_) {
+        return text;
+      }
+    } catch (e) {
+      if (e is! OpenCodeException) {
+        AppLog.instance.error('api', 'POST $path error: $e');
+      }
+      rethrow;
+    }
   }
 
   Future<void> _delete(String path) async {
-    final res = await _client.delete(_uri(path), headers: _headers).timeout(const Duration(seconds: 15));
-    if (res.statusCode != 200 && res.statusCode != 204) {
-      throw OpenCodeException('HTTP ${res.statusCode}: ${res.body}');
+    try {
+      final res =
+          await _client.delete(_uri(path), headers: _headers).timeout(const Duration(seconds: 15));
+      if (res.statusCode != 200 && res.statusCode != 204) {
+        _log('DELETE', path, null, res.statusCode, res.body);
+        throw OpenCodeException('HTTP ${res.statusCode}: ${res.body}');
+      }
+      _log('DELETE', path, null, res.statusCode);
+    } catch (e) {
+      if (e is! OpenCodeException) {
+        AppLog.instance.error('api', 'DELETE $path error: $e');
+      }
+      rethrow;
     }
   }
 
@@ -180,9 +234,11 @@ class OpenCodeApi {
     final req = http.Request('GET', _uri('/global/event'));
     req.headers.addAll(_headers);
     final client = http.Client();
+    AppLog.instance.sse('api', 'connecting to /global/event');
     try {
       final res = await client.send(req);
       if (res.statusCode != 200) {
+        AppLog.instance.error('api', 'Event stream HTTP ${res.statusCode}');
         throw OpenCodeException('Event stream HTTP ${res.statusCode}');
       }
       final stream = res.stream.transform(utf8.decoder);
@@ -196,10 +252,17 @@ class OpenCodeApi {
           text = text.substring(idx + 2);
           buffer = StringBuffer(text);
           final ev = _parseEventBlock(block);
-          if (ev != null) yield ev;
+          if (ev != null) {
+            AppLog.instance
+                .sse('api', 'event ${ev['type']} ${truncate(logJson(ev['data']), 200)}');
+            yield ev;
+          }
           idx = text.indexOf('\n\n');
         }
       }
+    } catch (e) {
+      AppLog.instance.error('api', 'event stream closed: $e');
+      rethrow;
     } finally {
       client.close();
     }

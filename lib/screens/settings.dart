@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config.dart';
+import 'logs.dart';
 import 'server_config.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -58,6 +59,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return '$scheme://${_config.host}$p';
   }
 
+  Future<void> _openLogs() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const LogsScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -92,6 +99,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             trailing: const Icon(Icons.chevron_right, color: Colors.white24),
             onTap: () => _showFontDialog(),
+          ),
+          const Divider(height: 1, color: Colors.white10),
+          const _SectionHeader('诊断'),
+          ListTile(
+            leading: const Icon(Icons.receipt_long_outlined),
+            title: const Text('客户端日志'),
+            subtitle: const Text('查看/复制/导出运行日志',
+                style: TextStyle(color: Colors.white38, fontSize: 13)),
+            trailing: const Icon(Icons.chevron_right, color: Colors.white24),
+            onTap: _openLogs,
           ),
           const Divider(height: 1, color: Colors.white10),
           const _SectionHeader('关于'),
