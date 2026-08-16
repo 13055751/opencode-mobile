@@ -51,6 +51,8 @@ class OpenCodeApi {
   }
 
   Future<http.Response> _getResponse(String path, [Map<String, String>? q]) async {
+    final started = DateTime.now();
+    AppLog.instance.http('api', 'GET $path …');
     try {
       final res = await _client.get(_uri(path, q), headers: _headers).timeout(
             const Duration(seconds: 15),
@@ -64,9 +66,8 @@ class OpenCodeApi {
       _log('GET', path, q, res.statusCode);
       return res;
     } catch (e) {
-      if (e is! OpenCodeException) {
-        AppLog.instance.error('api', 'GET $path error: $e');
-      }
+      final ms = DateTime.now().difference(started).inMilliseconds;
+      AppLog.instance.error('api', 'GET $path error after ${ms}ms: $e');
       rethrow;
     }
   }
@@ -82,6 +83,8 @@ class OpenCodeApi {
       }
     }
 
+    final started = DateTime.now();
+    AppLog.instance.http('api', 'POST $path …');
     try {
       final res = await _client
           .post(
@@ -104,14 +107,15 @@ class OpenCodeApi {
         return text;
       }
     } catch (e) {
-      if (e is! OpenCodeException) {
-        AppLog.instance.error('api', 'POST $path error: $e');
-      }
+      final ms = DateTime.now().difference(started).inMilliseconds;
+      AppLog.instance.error('api', 'POST $path error after ${ms}ms: $e');
       rethrow;
     }
   }
 
   Future<void> _delete(String path) async {
+    final started = DateTime.now();
+    AppLog.instance.http('api', 'DELETE $path …');
     try {
       final res =
           await _client.delete(_uri(path), headers: _headers).timeout(const Duration(seconds: 15));
@@ -121,9 +125,8 @@ class OpenCodeApi {
       }
       _log('DELETE', path, null, res.statusCode);
     } catch (e) {
-      if (e is! OpenCodeException) {
-        AppLog.instance.error('api', 'DELETE $path error: $e');
-      }
+      final ms = DateTime.now().difference(started).inMilliseconds;
+      AppLog.instance.error('api', 'DELETE $path error after ${ms}ms: $e');
       rethrow;
     }
   }
