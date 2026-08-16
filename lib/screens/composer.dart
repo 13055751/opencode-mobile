@@ -154,7 +154,9 @@ class Composer extends StatefulWidget {
   final String? agentLabel;
   final String? modelLabel;
   final String? variantLabel;
-  final VoidCallback? onPickModeModel;
+  final VoidCallback? onPickAgent;
+  final VoidCallback? onPickModel;
+  final VoidCallback? onPickVariant;
   const Composer({
     super.key,
     required this.api,
@@ -164,7 +166,9 @@ class Composer extends StatefulWidget {
     this.agentLabel,
     this.modelLabel,
     this.variantLabel,
-    this.onPickModeModel,
+    this.onPickAgent,
+    this.onPickModel,
+    this.onPickVariant,
   });
 
   @override
@@ -430,7 +434,9 @@ class _ComposerState extends State<Composer> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (widget.onPickModeModel != null)
+                if (widget.onPickAgent != null ||
+                    widget.onPickModel != null ||
+                    widget.onPickVariant != null)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Row(
@@ -439,23 +445,23 @@ class _ComposerState extends State<Composer> {
                           icon: Icons.person_outline,
                           label: '模式',
                           value: widget.agentLabel,
-                          onTap: widget.onPickModeModel!,
-                          enabled: !widget.busy,
+                          onTap: widget.onPickAgent ?? () => {},
+                          enabled: !widget.busy && widget.onPickAgent != null,
                         ),
-                        const SizedBox(width: 6),
-                        _Pill(
+                        if (widget.onPickAgent != null) const SizedBox(width: 6),
+                        if (widget.onPickModel != null) _Pill(
                           icon: Icons.memory,
                           label: '模型',
                           value: widget.modelLabel,
-                          onTap: widget.onPickModeModel!,
+                          onTap: widget.onPickModel!,
                           enabled: !widget.busy,
                         ),
-                        const SizedBox(width: 6),
-                        _Pill(
+                        if (widget.onPickModel != null) const SizedBox(width: 6),
+                        if (widget.onPickVariant != null) _Pill(
                           icon: Icons.bolt_outlined,
                           label: '强度',
                           value: widget.variantLabel,
-                          onTap: widget.onPickModeModel!,
+                          onTap: widget.onPickVariant!,
                           enabled: !widget.busy,
                         ),
                         const Spacer(),

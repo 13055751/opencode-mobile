@@ -506,39 +506,84 @@ class _ChatPaneState extends State<_ChatPane> {
     }
   }
 
-  Future<void> _pickModeModel() async {
+  List<Map<String, dynamic>> _agentsCache = [];
+  List<Map<String, dynamic>> _providersCache = [];
+  Map<String, dynamic> _defaults = {};
+  bool _metaLoaded = false;
+
+  bool _isPickableAgent(Map<String, dynamic> a) {
+    if ((a['mode'] as String?) != 'primary') return false;
+    return (a['description'] as String? ?? '').isNotEmpty;
+  }
+
+  Future<void> _loadMeta() async {
+    if (_metaLoaded) return;
     try {
       final a = await widget.api.listAgents();
       final m = await widget.api.listModels();
       if (!mounted) return;
-      await showModalBottomSheet<void>(
-        context: context,
-        backgroundColor: const Color(0xFF1C1E26),
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        builder: (_) => _ModeModelSheet(
-          agents: List<Map<String, dynamic>>.from(a.whereType<Map<String, dynamic>>()),
-          providers: List<Map<String, dynamic>>.from(m.$1.whereType<Map<String, dynamic>>()),
-          agent: _agentOverride,
-          provider: _modelProvider,
-          modelID: _modelID,
-          variant: _variantOverride,
-          onDone: (agent, provider, modelId, variant) {
-            setState(() {
-              _agentOverride = agent;
-              _modelProvider = provider;
-              _modelID = modelId;
-              _variantOverride = variant;
-            });
-          },
-        ),
-      );
+      setState(() {
+        _agentsCache = a.whereType<Map<String, dynamic>>().toList();
+        _providersCache = m.$1.whereType<Map<String, dynamic>>().toList();
+        _defaults = Map<String, dynamic>.from(m.$2 is Map ? m.$2 as Map : const {});
+        if (_agentOverride == null) {
+          final prim = _agentsCache.where(_isPickableAgent).toList();
+          if (prim.isNotEmpty) _agentOverride = prim.first['name'] as String?;
+        }
+        if (_modelProvider == null && _defaults.isNotEmpty) {
+          final e = _defaults.entries.first;
+          _modelProvider = e.key;
+          _modelID = e.value as String?;
+        }
+        _metaLoaded = true;
+      });
     } catch (e) {
-      AppLog.instance.error('chat', 'pick mode/model failed: $e');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('获取模式/模型失败: $e')));
+      AppLog.instance.error('chat', 'load agent/model meta failed: $e');
     }
+  }
+
+  String? _modelDisplay() {
+    if (_modelProvider == null || _modelID == null) return null;
+    for (final p in _providersCache) {
+      if ((p['id'] as String? ?? '') != _modelProvider) continue;
+      final models = p['models'];
+      if (models is Map<String, dynamic>) {
+        final mm = models[_modelID];
+        if (mm is Map<String, dynamic> && (mm['name'] as String? ?? '').isNotEmpty) {
+          return mm['name'] as String;
+        }
+      }
+    }
+    return '$_modelProvider/$_modelID';
+  }
+
+  Future<void> _showSection(_SheetSection section) async {
+    if (!_metaLoaded) await _loadMeta();
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF1C1E26),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _SectionSheet(
+        section: section,
+        agents: _agentsCache.where(_isPickableAgent).toList(),
+        providers: _providersCache,
+        agent: _agentOverride,
+        provider: _modelProvider,
+        modelID: _modelID,
+        variant: _variantOverride,
+        onDone: (agent, provider, modelId, variant) {
+          setState(() {
+            _agentOverride = agent;
+            _modelProvider = provider;
+            _modelID = modelId;
+            _variantOverride = variant;
+          });
+        },
+      ),
+    );
   }
 
   void _upsertMessage(ChatMessage msg) {
@@ -683,11 +728,13 @@ class _ChatPaneState extends State<_ChatPane> {
           onSend: _send,
           onAbort: abort,
           agentLabel: _agentOverride,
-          modelLabel: _modelProvider == null || _modelID == null
-              ? null
-              : '$_modelProvider/$_modelID',
-          variantLabel: _variantOverride,
-          onPickModeModel: _pickModeModel,
+          modelLabel: _modelDisplay(),
+          variantLabel: _variantOverride == null || _variantOverride == 'default'
+              ? '默认'
+              : _variantOverride,
+          onPickAgent: () => _showSection(_SheetSection.agent),
+          onPickModel: () => _showSection(_SheetSection.model),
+          onPickVariant: () => _showSection(_SheetSection.variant),
         ),
       ],
     );
@@ -701,7 +748,9 @@ class _QItem {
   _QItem({required this.sessionID, required this.requestID, required this.questions});
 }
 
-class _ModeModelSheet extends StatefulWidget {
+enum _SheetSection { agent, model, variant }
+
+class _SectionSheet extends StatefulWidget {
   final List<Map<String, dynamic>> agents;
   final List<Map<String, dynamic>> providers;
   final String? agent;
@@ -723,7 +772,31 @@ class _ModeModelSheet extends StatefulWidget {
   State<_ModeModelSheet> createState() => _ModeModelSheetState();
 }
 
-class _ModeModelSheetState extends State<_ModeModelSheet> {
+class _SectionSheet extends StatefulWidget {
+  final _SheetSection section;
+  final List<Map<String, dynamic>> agents;
+  final List<Map<String, dynamic>> providers;
+  final String? agent;
+  final String? provider;
+  final String? modelID;
+  final String? variant;
+  final void Function(String? agent, String? provider, String? modelId, String? variant) onDone;
+  const _SectionSheet({
+    required this.section,
+    required this.agents,
+    required this.providers,
+    this.agent,
+    this.provider,
+    this.modelID,
+    this.variant,
+    required this.onDone,
+  });
+
+  @override
+  State<_SectionSheet> createState() => _SectionSheetState();
+}
+
+class _SectionSheetState extends State<_SectionSheet> {
   String? _agent;
   String? _provider;
   String? _modelID;
@@ -793,88 +866,85 @@ class _ModeModelSheetState extends State<_ModeModelSheet> {
   Widget build(BuildContext context) {
     final modelChoices = _modelChoices();
     final variantChoices = _variantChoices();
+    final title = switch (widget.section) {
+      _SheetSection.agent => '选择模式',
+      _SheetSection.model => '选择模型',
+      _SheetSection.variant => '选择思考强度',
+    };
     return SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: Text('模式、模型与思考强度', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+            child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
           ),
           Flexible(
             child: ListView(
               shrinkWrap: true,
               children: [
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(20, 8, 20, 4),
-                  child: Text('模式（agent）', style: TextStyle(fontSize: 12, color: Colors.white38)),
-                ),
-                if (widget.agents.isEmpty)
-                  const ListTile(
-                    dense: true,
-                    title: Text('未获取到可用模式', style: TextStyle(fontSize: 13)),
-                  )
-                else
-                  for (final a in widget.agents)
+                if (widget.section == _SheetSection.agent) ...[
+                  if (widget.agents.isEmpty)
+                    const ListTile(
+                      dense: true,
+                      title: Text('未获取到可用模式', style: TextStyle(fontSize: 13)),
+                    )
+                  else
+                    for (final a in widget.agents)
+                      RadioListTile<String?>(
+                        dense: true,
+                        value: a['name'] as String?,
+                        groupValue: _agent,
+                        activeColor: const Color(0xFF6C5CE7),
+                        title: Text((a['name'] as String? ?? ''), style: const TextStyle(fontSize: 14)),
+                        subtitle: a['description'] is String && (a['description'] as String).isNotEmpty
+                            ? Text(
+                                (a['description'] as String).replaceAll('\n', ' '),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 11, color: Colors.white38),
+                              )
+                            : null,
+                        onChanged: (v) => setState(() => _agent = v),
+                      ),
+                ],
+                if (widget.section == _SheetSection.model) ...[
+                  if (modelChoices.isEmpty)
+                    const ListTile(
+                      dense: true,
+                      title: Text('未获取到可用模型', style: TextStyle(fontSize: 13)),
+                    )
+                  else
+                    for (final mc in modelChoices)
+                      RadioListTile<String>(
+                        dense: true,
+                        value: mc,
+                        groupValue: _provider == null ? null : '$_provider/$_modelID',
+                        activeColor: const Color(0xFF6C5CE7),
+                        title: Text(_modelLabel(mc), style: const TextStyle(fontSize: 13)),
+                        onChanged: (v) {
+                          if (v == null) return;
+                          final sl = v.indexOf('/');
+                          setState(() {
+                            _provider = v.substring(0, sl);
+                            _modelID = v.substring(sl + 1);
+                            _variant = null;
+                          });
+                        },
+                      ),
+                ],
+                if (widget.section == _SheetSection.variant) ...[
+                  for (final v in variantChoices)
                     RadioListTile<String?>(
                       dense: true,
-                      value: a['name'] as String?,
-                      groupValue: _agent,
+                      value: v,
+                      groupValue: _variant,
                       activeColor: const Color(0xFF6C5CE7),
-                      title: Text((a['name'] as String? ?? ''), style: const TextStyle(fontSize: 14)),
-                      subtitle: a['description'] is String && (a['description'] as String).isNotEmpty
-                          ? Text(
-                              (a['description'] as String).replaceAll('\n', ' '),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 11, color: Colors.white38),
-                            )
-                          : null,
-                      onChanged: (v) => setState(() => _agent = v),
+                      title: Text(v == 'default' ? '默认' : v, style: const TextStyle(fontSize: 13)),
+                      onChanged: (val) => setState(() => _variant = val),
                     ),
-                const Divider(height: 1, color: Colors.white12),
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(20, 8, 20, 4),
-                  child: Text('模型', style: TextStyle(fontSize: 12, color: Colors.white38)),
-                ),
-                if (modelChoices.isEmpty)
-                  const ListTile(
-                    dense: true,
-                    title: Text('未获取到可用模型', style: TextStyle(fontSize: 13)),
-                  )
-                else
-                  for (final mc in modelChoices)
-                    RadioListTile<String>(
-                      dense: true,
-                      value: mc,
-                      groupValue: _provider == null ? null : '$_provider/$_modelID',
-                      activeColor: const Color(0xFF6C5CE7),
-                      title: Text(_modelLabel(mc), style: const TextStyle(fontSize: 13)),
-                      onChanged: (v) {
-                        if (v == null) return;
-                        final sl = v.indexOf('/');
-                        setState(() {
-                          _provider = v.substring(0, sl);
-                          _modelID = v.substring(sl + 1);
-                          _variant = null;
-                        });
-                      },
-                    ),
-                const Divider(height: 1, color: Colors.white12),
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(20, 8, 20, 4),
-                  child: Text('思考强度（variant）', style: TextStyle(fontSize: 12, color: Colors.white38)),
-                ),
-                for (final v in variantChoices)
-                  RadioListTile<String?>(
-                    dense: true,
-                    value: v,
-                    groupValue: _variant,
-                    activeColor: const Color(0xFF6C5CE7),
-                    title: Text(v == 'default' ? '默认' : v, style: const TextStyle(fontSize: 13)),
-                    onChanged: (val) => setState(() => _variant = val),
-                  ),
+                ],
                 const SizedBox(height: 8),
               ],
             ),
