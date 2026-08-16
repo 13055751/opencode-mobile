@@ -90,11 +90,68 @@ class ChatActionsSheet extends StatelessWidget {
   }
 }
 
+class _Pill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String? value;
+  final VoidCallback onTap;
+  final bool enabled;
+  const _Pill({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onTap,
+    this.enabled = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFF1C1E26),
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: enabled ? onTap : null,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white10),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: enabled ? const Color(0xFF6C5CE7) : Colors.white24),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(fontSize: 11, color: enabled ? Colors.white70 : Colors.white24),
+              ),
+              if (value != null && value!.isNotEmpty)
+                Text(
+                  ' · $value',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: enabled ? Colors.white : Colors.white38,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class Composer extends StatefulWidget {
   final OpenCodeApi api;
   final bool busy;
   final void Function(String text, List<Map<String, dynamic>> parts) onSend;
   final VoidCallback onAbort;
+  final String? agentLabel;
+  final String? modelLabel;
+  final String? variantLabel;
   final VoidCallback? onPickModeModel;
   const Composer({
     super.key,
@@ -102,6 +159,9 @@ class Composer extends StatefulWidget {
     required this.busy,
     required this.onSend,
     required this.onAbort,
+    this.agentLabel,
+    this.modelLabel,
+    this.variantLabel,
     this.onPickModeModel,
   });
 
@@ -194,6 +254,78 @@ class _ComposerState extends State<Composer> {
     });
   }
 
+  Future<void> _openFullscreen() async {
+    final sent = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF14161C),
+      barrierColor: Colors.black87,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) {
+        final bottom = MediaQuery.of(sheetCtx).viewInsets.bottom;
+        return Padding(
+          padding: EdgeInsets.only(bottom: bottom),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.max,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => Navigator.pop(sheetCtx, false),
+                        icon: const Icon(Icons.close, color: Colors.white54),
+                        tooltip: '收起',
+                      ),
+                      Expanded(
+                        child: Text(
+                          '编辑消息',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      IconButton.filled(
+                        onPressed: () => Navigator.pop(sheetCtx, true),
+                        style: IconButton.styleFrom(backgroundColor: const Color(0xFF6C5CE7)),
+                        icon: const Icon(Icons.send, size: 18),
+                        tooltip: '发送',
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                    child: TextField(
+                      controller: _controller,
+                      maxLines: null,
+                      expands: true,
+                      textAlignVertical: TextAlignVertical.top,
+                      style: const TextStyle(fontSize: 16, color: Colors.white, height: 1.5),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        hintText: '输入消息…',
+                        hintStyle: TextStyle(color: Colors.white24),
+                      ),
+                      onSubmitted: (_) => Navigator.pop(sheetCtx, true),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (sent == true) {
+      _submit();
+      if (mounted) _match = '';
+    }
+  }
+
   void _submit() {
     final text = _controller.text.trim();
     if (text.isEmpty && _attachments.isEmpty) return;
@@ -218,6 +350,7 @@ class _ComposerState extends State<Composer> {
   @override
   Widget build(BuildContext context) {
     final suggestions = _match.isEmpty ? <Map<String, dynamic>>[] : _suggestions();
+    final hasText = _controller.text.isNotEmpty;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -286,74 +419,112 @@ class _ComposerState extends State<Composer> {
           ),
           child: SafeArea(
             top: false,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                IconButton(
-                  onPressed: widget.busy ? null : _pickAttachment,
-                  style: IconButton.styleFrom(
-                    backgroundColor: const Color(0xFF2A2D3A),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                  icon: const Icon(Icons.attach_file, size: 20),
-                  tooltip: '添加文件',
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Container(
-                    constraints: const BoxConstraints(minHeight: 40, maxHeight: 120),
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1C1E26),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white10),
-                    ),
-                    child: TextField(
-                      controller: _controller,
-                      minLines: 1,
-                      maxLines: 5,
-                      style: const TextStyle(fontSize: 15, color: Colors.white),
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                        hintText: '输入消息…（/指令 @模式）',
-                        hintStyle: TextStyle(color: Colors.white24, fontSize: 15),
-                        isDense: true,
-                      ),
-                      textInputAction: TextInputAction.newline,
-                      onChanged: _onChanged,
-                      onSubmitted: (_) => _submit(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
                 if (widget.onPickModeModel != null)
-                  IconButton(
-                    onPressed: widget.busy ? null : widget.onPickModeModel,
-                    style: IconButton.styleFrom(
-                      backgroundColor: const Color(0xFF2A2D3A),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        _Pill(
+                          icon: Icons.person_outline,
+                          label: '模式',
+                          value: widget.agentLabel,
+                          onTap: widget.onPickModeModel!,
+                          enabled: !widget.busy,
+                        ),
+                        const SizedBox(width: 6),
+                        _Pill(
+                          icon: Icons.memory,
+                          label: '模型',
+                          value: widget.modelLabel,
+                          onTap: widget.onPickModeModel!,
+                          enabled: !widget.busy,
+                        ),
+                        const SizedBox(width: 6),
+                        _Pill(
+                          icon: Icons.bolt_outlined,
+                          label: '强度',
+                          value: widget.variantLabel,
+                          onTap: widget.onPickModeModel!,
+                          enabled: !widget.busy,
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          onPressed: widget.busy ? null : _openFullscreen,
+                          style: IconButton.styleFrom(
+                            backgroundColor: const Color(0xFF2A2D3A),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
+                          icon: const Icon(Icons.open_in_full, size: 18),
+                          tooltip: '全屏输入',
+                        ),
+                      ],
                     ),
-                    icon: const Icon(Icons.tune, size: 20),
-                    tooltip: '模式与模型',
                   ),
-                const SizedBox(width: 4),
-                if (widget.busy)
-                  IconButton.filled(
-                    onPressed: widget.onAbort,
-                    style: IconButton.styleFrom(backgroundColor: const Color(0xFFE17055)),
-                    icon: const Icon(Icons.stop),
-                    tooltip: '中止',
-                  )
-                else
-                  IconButton.filled(
-                    onPressed: _submit,
-                    style: IconButton.styleFrom(
-                      backgroundColor: const Color(0xFF6C5CE7),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      onPressed: widget.busy ? null : _pickAttachment,
+                      style: IconButton.styleFrom(
+                        backgroundColor: const Color(0xFF2A2D3A),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      icon: const Icon(Icons.attach_file, size: 20),
+                      tooltip: '添加文件',
                     ),
-                    icon: const Icon(Icons.arrow_upward),
-                    tooltip: '发送',
-                  ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Container(
+                        constraints: const BoxConstraints(minHeight: 40, maxHeight: 140),
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1C1E26),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white10),
+                        ),
+                        child: TextField(
+                          controller: _controller,
+                          minLines: 1,
+                          maxLines: 7,
+                          style: const TextStyle(fontSize: 15, color: Colors.white),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            hintText: '输入消息…（/指令 @模式）',
+                            hintStyle: TextStyle(color: Colors.white24, fontSize: 15),
+                            isDense: true,
+                          ),
+                          textInputAction: TextInputAction.newline,
+                          onChanged: (v) {
+                            _onChanged(v);
+                            if (hasText != v.isNotEmpty) setState(() {});
+                          },
+                          onSubmitted: (_) => _submit(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    if (widget.busy)
+                      IconButton.filled(
+                        onPressed: widget.onAbort,
+                        style: IconButton.styleFrom(backgroundColor: const Color(0xFFE17055)),
+                        icon: const Icon(Icons.stop),
+                        tooltip: '中止',
+                      )
+                    else
+                      IconButton.filled(
+                        onPressed: _submit,
+                        style: IconButton.styleFrom(
+                          backgroundColor: const Color(0xFF6C5CE7),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        icon: const Icon(Icons.arrow_upward),
+                        tooltip: '发送',
+                      ),
+                  ],
+                ),
               ],
             ),
           ),

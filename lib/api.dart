@@ -228,6 +228,7 @@ class OpenCodeApi {
       {String? agent,
       String? modelProvider,
       String? modelID,
+      String? variant,
       List<Map<String, dynamic>>? parts}) async {
     final bodyParts = parts ?? [
       {'type': 'text', 'text': prompt}
@@ -237,6 +238,7 @@ class OpenCodeApi {
       if (agent != null) 'agent': agent,
       if (modelProvider != null && modelID != null)
         'model': {'providerID': modelProvider, 'modelID': modelID},
+      if (variant != null && variant != 'default') 'variant': variant,
     });
   }
 
@@ -252,13 +254,13 @@ class OpenCodeApi {
     return data is List ? data : [];
   }
 
-  /// Lists configured providers + models (GET /provider).
+  /// Lists configured providers + models (GET /config/providers).
   Future<(List<Map<String, dynamic>>, Map<String, dynamic>)> listModels() async {
-    final data = await _get('/provider');
+    final data = await _get('/config/providers');
     if (data is! Map<String, dynamic>) {
       return (<Map<String, dynamic>>[], <String, dynamic>{});
     }
-    final all = (data['all'] as List<dynamic>? ?? [])
+    final all = (data['providers'] as List<dynamic>? ?? [])
         .whereType<Map<String, dynamic>>()
         .toList();
     final defaults =

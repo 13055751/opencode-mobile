@@ -249,6 +249,7 @@ class _ChatPaneState extends State<_ChatPane> {
   String? _agentOverride;
   String? _modelProvider;
   String? _modelID;
+  String? _variantOverride;
 
   bool get busy => _busy;
 
@@ -506,15 +507,17 @@ class _ChatPaneState extends State<_ChatPane> {
         ),
         builder: (_) => _ModeModelSheet(
           agents: List<Map<String, dynamic>>.from(a.whereType<Map<String, dynamic>>()),
-          models: {'all': m.$1},
+          providers: List<Map<String, dynamic>>.from(m.$1.whereType<Map<String, dynamic>>()),
           agent: _agentOverride,
           provider: _modelProvider,
           modelID: _modelID,
-          onDone: (agent, provider, modelId) {
+          variant: _variantOverride,
+          onDone: (agent, provider, modelId, variant) {
             setState(() {
               _agentOverride = agent;
               _modelProvider = provider;
               _modelID = modelId;
+              _variantOverride = variant;
             });
           },
         ),
@@ -605,6 +608,7 @@ class _ChatPaneState extends State<_ChatPane> {
         agent: _agentOverride,
         modelProvider: _modelProvider,
         modelID: _modelID,
+        variant: _variantOverride,
         parts: parts,
       );
     } catch (e) {
@@ -662,6 +666,11 @@ class _ChatPaneState extends State<_ChatPane> {
           busy: _busy,
           onSend: _send,
           onAbort: abort,
+          agentLabel: _agentOverride,
+          modelLabel: _modelProvider == null || _modelID == null
+              ? null
+              : '$_modelProvider/$_modelID',
+          variantLabel: _variantOverride,
           onPickModeModel: _pickModeModel,
         ),
       ],
@@ -678,17 +687,19 @@ class _QItem {
 
 class _ModeModelSheet extends StatefulWidget {
   final List<Map<String, dynamic>> agents;
-  final Map<String, dynamic> models;
+  final List<Map<String, dynamic>> providers;
   final String? agent;
   final String? provider;
   final String? modelID;
-  final void Function(String? agent, String? provider, String? modelId) onDone;
+  final String? variant;
+  final void Function(String? agent, String? provider, String? modelId, String? variant) onDone;
   const _ModeModelSheet({
     required this.agents,
-    required this.models,
+    required this.providers,
     this.agent,
     this.provider,
     this.modelID,
+    this.variant,
     required this.onDone,
   });
 
@@ -700,6 +711,7 @@ class _ModeModelSheetState extends State<_ModeModelSheet> {
   String? _agent;
   String? _provider;
   String? _modelID;
+  String? _variant;
 
   @override
   void initState() {
@@ -707,26 +719,64 @@ class _ModeModelSheetState extends State<_ModeModelSheet> {
     _agent = widget.agent;
     _provider = widget.provider;
     _modelID = widget.modelID;
+    _variant = widget.variant;
   }
 
   List<String> _modelChoices() {
-    final all = (widget.models['all'] as List<dynamic>? ?? []);
     final out = <String>[];
-    for (final prov in all.whereType<Map<String, dynamic>>()) {
+    for (final prov in widget.providers) {
       final pid = prov['id'] as String? ?? '';
       final models = prov['models'];
       if (models is Map<String, dynamic>) {
         for (final mid in models.keys) {
-          out.add('$pid/${models[mid]}');
+          out.add('$pid/$mid');
         }
       }
     }
     return out;
   }
 
+  String _modelLabel(String mc) {
+    final sl = mc.indexOf('/');
+    final pid = mc.substring(0, sl);
+    final mid = mc.substring(sl + 1);
+    for (final prov in widget.providers) {
+      if ((prov['id'] as String? ?? '') != pid) continue;
+      final models = prov['models'];
+      if (models is Map<String, dynamic>) {
+        final m = models[mid];
+        if (m is Map<String, dynamic>) {
+          final name = m['name'] as String? ?? '';
+          if (name.isNotEmpty) return name;
+        }
+      }
+    }
+    return mid;
+  }
+
+  List<String> _variantChoices() {
+    if (_provider == null || _modelID == null) return const ['default'];
+    final vars = <String>['default'];
+    for (final prov in widget.providers) {
+      if ((prov['id'] as String? ?? '') != _provider) continue;
+      final models = prov['models'];
+      if (models is Map<String, dynamic>) {
+        final m = models[_modelID];
+        if (m is Map<String, dynamic>) {
+          final vs = m['variants'];
+          if (vs is Map<String, dynamic>) {
+            vars.addAll(vs.keys);
+          }
+        }
+      }
+    }
+    return vars;
+  }
+
   @override
   Widget build(BuildContext context) {
     final modelChoices = _modelChoices();
+    final variantChoices = _variantChoices();
     return SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -734,7 +784,7 @@ class _ModeModelSheetState extends State<_ModeModelSheet> {
         children: [
           const Padding(
             padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: Text('模式与模型', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            child: Text('模式、模型与思考强度', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
           ),
           Flexible(
             child: ListView(
@@ -784,16 +834,31 @@ class _ModeModelSheetState extends State<_ModeModelSheet> {
                       value: mc,
                       groupValue: _provider == null ? null : '$_provider/$_modelID',
                       activeColor: const Color(0xFF6C5CE7),
-                      title: Text(mc, style: const TextStyle(fontSize: 13)),
+                      title: Text(_modelLabel(mc), style: const TextStyle(fontSize: 13)),
                       onChanged: (v) {
                         if (v == null) return;
                         final sl = v.indexOf('/');
                         setState(() {
                           _provider = v.substring(0, sl);
                           _modelID = v.substring(sl + 1);
+                          _variant = null;
                         });
                       },
                     ),
+                const Divider(height: 1, color: Colors.white12),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 8, 20, 4),
+                  child: Text('思考强度（variant）', style: TextStyle(fontSize: 12, color: Colors.white38)),
+                ),
+                for (final v in variantChoices)
+                  RadioListTile<String?>(
+                    dense: true,
+                    value: v,
+                    groupValue: _variant,
+                    activeColor: const Color(0xFF6C5CE7),
+                    title: Text(v == 'default' ? '默认' : v, style: const TextStyle(fontSize: 13)),
+                    onChanged: (val) => setState(() => _variant = val),
+                  ),
                 const SizedBox(height: 8),
               ],
             ),
@@ -803,7 +868,7 @@ class _ModeModelSheetState extends State<_ModeModelSheet> {
             child: FilledButton(
               style: FilledButton.styleFrom(backgroundColor: const Color(0xFF6C5CE7)),
               onPressed: () {
-                widget.onDone(_agent, _provider, _modelID);
+                widget.onDone(_agent, _provider, _modelID, _variant);
                 Navigator.of(context).pop();
               },
               child: const Text('应用'),
