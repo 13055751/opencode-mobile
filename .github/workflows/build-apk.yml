@@ -47,15 +47,25 @@ jobs:
           set -e
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
-            mkdir -p android
-            echo "storeFile=release.keystore" > android/keystore.properties
+          else
+            echo "NO signing secrets - generating ephemeral keystore"
+            keytool -genkeypair -keystore android/app/release.keystore \
+              -alias release -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass androidcfgd7c -keypass androidcfgd7c \
+              -dname "CN=opencode-mobile,O=Devopencode,C=CN"
+          fi
+          mkdir -p android
+          echo "storeFile=release.keystore" > android/keystore.properties
+          if [ -n "$KEYSTORE_PASSWORD" ]; then
             echo "storePassword=$KEYSTORE_PASSWORD" >> android/keystore.properties
             echo "keyAlias=$KEY_ALIAS" >> android/keystore.properties
             echo "keyPassword=$KEY_PASSWORD" >> android/keystore.properties
-            ls -la android/app/release.keystore android/keystore.properties
           else
-            echo "NO signing secrets - fallback to debug signing"
+            echo "storePassword=androidcfgd7c" >> android/keystore.properties
+            echo "keyAlias=release" >> android/keystore.properties
+            echo "keyPassword=androidcfgd7c" >> android/keystore.properties
           fi
+          ls -la android/app/release.keystore android/keystore.properties
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
