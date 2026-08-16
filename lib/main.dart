@@ -7,7 +7,7 @@ import 'logs.dart';
 import 'screens/home.dart';
 
 void main() {
-  AppLog.instance.installGlobalHandlers();
+  AppLog.installGlobalHandlers();
   runApp(const OpenCodeApp());
 }
 
