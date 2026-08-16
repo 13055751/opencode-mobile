@@ -64,7 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _selectProject() async {
-    final result = await showModalBottomSheet<(String, _ProjectAction)?>(
+    final result = await showModalBottomSheet<(String?, _ProjectAction)?>(
       context: context,
       builder: (ctx) => SafeArea(
         child: ListView(
