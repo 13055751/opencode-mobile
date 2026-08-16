@@ -46,6 +46,11 @@ class OpenCodeApi {
   }
 
   Future<dynamic> _get(String path, [Map<String, String>? q]) async {
+    final res = await _getResponse(path, q);
+    return jsonDecode(utf8.decode(res.bodyBytes));
+  }
+
+  Future<http.Response> _getResponse(String path, [Map<String, String>? q]) async {
     try {
       final res = await _client.get(_uri(path, q), headers: _headers).timeout(
             const Duration(seconds: 15),
@@ -57,7 +62,7 @@ class OpenCodeApi {
             statusCode: res.statusCode);
       }
       _log('GET', path, q, res.statusCode);
-      return jsonDecode(utf8.decode(res.bodyBytes));
+      return res;
     } catch (e) {
       if (e is! OpenCodeException) {
         AppLog.instance.error('api', 'GET $path error: $e');
@@ -194,12 +199,81 @@ class OpenCodeApi {
     return [];
   }
 
-  Future<void> sendMessage(String sessionID, String prompt) async {
-    await _post('/session/$sessionID/message', {
-      'parts': [
-        {'type': 'text', 'text': prompt}
-      ]
+  /// Fetches a page of messages starting from the newest [limit] messages.
+  /// Returns messages (ordered oldest→newest) plus an opaque [before] cursor
+  /// for loading older pages (null when no older messages exist).
+  Future<({List<ChatMessage> messages, String? before})> listMessagesPage(
+    String sessionID, {
+    int limit = 50,
+    String? before,
+  }) async {
+    final res = await _getResponse('/session/$sessionID/message', {
+      'limit': '$limit',
+      if (before != null) 'before': before,
     });
+    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    final list = data is List
+        ? data
+        : (data is Map && data['data'] is List ? data['data'] as List : []);
+    return (
+      messages: list
+          .whereType<Map<String, dynamic>>()
+          .map(ChatMessage.fromPageItem)
+          .toList(),
+      before: res.headers['x-next-cursor'] ?? res.headers['X-Next-Cursor'],
+    );
+  }
+
+  Future<void> sendMessage(String sessionID, String prompt,
+      {String? agent,
+      String? modelProvider,
+      String? modelID,
+      List<Map<String, dynamic>>? parts}) async {
+    final bodyParts = parts ?? [
+      {'type': 'text', 'text': prompt}
+    ];
+    await _post('/session/$sessionID/message', {
+      'parts': bodyParts,
+      if (agent != null) 'agent': agent,
+      if (modelProvider != null && modelID != null)
+        'model': {'providerID': modelProvider, 'modelID': modelID},
+    });
+  }
+
+  /// Lists available slash commands from the server (GET /instance/command).
+  Future<List<dynamic>> listCommands() async {
+    final data = await _get('/instance/command');
+    return data is List ? data : [];
+  }
+
+  /// Lists available agents (modes) from the server (GET /instance/agent).
+  Future<List<dynamic>> listAgents() async {
+    final data = await _get('/instance/agent');
+    return data is List ? data : [];
+  }
+
+  /// Lists configured providers + models (GET /provider).
+  Future<(List<Map<String, dynamic>>, Map<String, dynamic>)> listModels() async {
+    final data = await _get('/provider');
+    if (data is! Map<String, dynamic>) return (<Map<String, dynamic>>[], {});
+    final all = (data['all'] as List<dynamic>? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .toList();
+    final defaults =
+        (data['default'] as Map<String, dynamic>?) ?? <String, dynamic>{};
+    return (all, defaults);
+  }
+
+  /// Git working-tree status (GET /instance/vcs/status).
+  Future<List<dynamic>> gitStatus() async {
+    final data = await _get('/instance/vcs/status');
+    return data is List ? data : [];
+  }
+
+  /// Git diff (GET /instance/vcs/diff).
+  Future<List<dynamic>> gitDiff() async {
+    final data = await _get('/instance/vcs/diff');
+    return data is List ? data : [];
   }
 
   Future<void> abort(String sessionID) async {

@@ -64,12 +64,45 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _selectProject() async {
-    final action = await showModalBottomSheet<_ProjectAction>(
+    final result = await showModalBottomSheet<_ProjectAction?>(
       context: context,
       builder: (ctx) => SafeArea(
         child: ListView(
           shrinkWrap: true,
           children: [
+            if (widget.config.projects.isNotEmpty) ...[
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 14, 20, 4),
+                child: Text('已选项目', style: TextStyle(fontSize: 12, color: Colors.white38)),
+              ),
+              for (final p in widget.config.projects)
+                ListTile(
+                  dense: true,
+                  leading: Icon(
+                    Icons.folder_outlined,
+                    size: 20,
+                    color: p == _projectDir ? const Color(0xFF6C5CE7) : Colors.white38,
+                  ),
+                  title: Text(
+                    p,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: p == _projectDir ? const Color(0xFF6C5CE7) : null,
+                      fontWeight: p == _projectDir ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                  trailing: p == _projectDir
+                      ? const Icon(Icons.check, size: 18, color: Color(0xFF6C5CE7))
+                      : IconButton(
+                          icon: const Icon(Icons.close, size: 16, color: Colors.white24),
+                          tooltip: '移除',
+                          onPressed: () => Navigator.of(ctx).pop(_ProjectAction.remove(p)),
+                        ),
+                  onTap: () => Navigator.of(ctx).pop(_ProjectAction.choose(p)),
+                ),
+            ],
             ListTile(
               leading: const Icon(Icons.folder_open_outlined),
               title: const Text('浏览服务器目录'),
@@ -86,8 +119,8 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
-    if (!mounted) return;
-    switch (action) {
+    if (!mounted || result == null) return;
+    switch (result) {
       case _ProjectAction.browse:
         final picked = await Navigator.of(context).push<String>(
           MaterialPageRoute(
@@ -98,16 +131,44 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
         if (picked == null || !mounted) return;
-        setState(() => _projectDir = picked);
-        await _refresh();
+        await _addProject(picked);
         break;
       case _ProjectAction.all:
         setState(() => _projectDir = null);
         await _refresh();
         break;
-      case null:
+      case _ProjectAction choose(:final dir):
+        setState(() => _projectDir = dir);
+        await _refresh();
+        break;
+      case _ProjectAction remove(:final dir):
+        setState(() {
+          final list = [...widget.config.projects]..remove(dir);
+          _saveProjects(list);
+          if (_projectDir == dir) _projectDir = null;
+        });
+        await _refresh();
         break;
     }
+  }
+
+  Future<void> _addProject(String dir) async {
+    final list = [...widget.config.projects];
+    if (!list.contains(dir)) list.insert(0, dir);
+    _saveProjects(list);
+    setState(() => _projectDir = dir);
+    await _refresh();
+  }
+
+  void _saveProjects(List<String> list) {
+    widget.onConfigChanged(AppConfig(
+      host: widget.config.host,
+      port: widget.config.port,
+      password: widget.config.password,
+      useHttps: widget.config.useHttps,
+      fontScale: widget.config.fontScale,
+      projects: list,
+    ));
   }
 
   Future<void> _openConfig() async {
@@ -333,7 +394,12 @@ class _NewSessionInput {
   _NewSessionInput({this.title, this.directory});
 }
 
-enum _ProjectAction { browse, all }
+enum _ProjectAction {
+  browse,
+  all,
+  choose(String dir),
+  remove(String dir);
+}
 
 class _NewSessionDialog extends StatefulWidget {
   final OpenCodeApi api;

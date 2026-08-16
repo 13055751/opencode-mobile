@@ -6,12 +6,14 @@ class AppConfig {
   static const _kPassword = 'oc_password';
   static const _kUseHttps = 'oc_https';
   static const _kFontScale = 'oc_font_scale';
+  static const _kProjects = 'oc_projects';
 
   String host;
   int? port;
   String password;
   bool useHttps;
   double fontScale;
+  List<String> projects;
 
   AppConfig({
     this.host = '127.0.0.1',
@@ -19,6 +21,7 @@ class AppConfig {
     this.password = '',
     this.useHttps = false,
     this.fontScale = 1.0,
+    this.projects = const [],
   });
 
   String get baseUrl {
@@ -33,6 +36,7 @@ class AppConfig {
         password: p.getString(_kPassword) ?? '',
         useHttps: p.getBool(_kUseHttps) ?? false,
         fontScale: p.getDouble(_kFontScale) ?? 1.0,
+        projects: p.getStringList(_kProjects) ?? const [],
       );
 
   Future<void> save(SharedPreferences p) async {
@@ -41,5 +45,6 @@ class AppConfig {
     await p.setString(_kPassword, password);
     await p.setBool(_kUseHttps, useHttps);
     await p.setDouble(_kFontScale, fontScale);
+    await p.setStringList(_kProjects, projects);
   }
 }
