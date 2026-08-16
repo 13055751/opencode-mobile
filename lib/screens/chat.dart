@@ -31,7 +31,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _paneKeys.add(GlobalKey<_ChatPaneState>());
   }
 
-  _ChatPaneState get _pane => _paneKeys[_current].currentState!;
+  _ChatPaneState? get _pane => _paneKeys[_current].currentState;
 
   void _addSession(Session s) {
     final existing = _sessions.indexWhere((x) => x.id == s.id);
@@ -121,7 +121,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final cur = _sessions[_current];
-    final curBusy = _pane.busy;
+    final curBusy = _pane?.busy ?? false;
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -144,7 +144,7 @@ class _ChatScreenState extends State<ChatScreen> {
         actions: [
           if (curBusy)
             IconButton(
-              onPressed: () => _pane.abort(),
+              onPressed: () => _pane?.abort(),
               icon: const Icon(Icons.stop_circle_outlined),
             ),
           IconButton(
@@ -188,9 +188,9 @@ class _ChatScreenState extends State<ChatScreen> {
                             style: const TextStyle(fontSize: 12),
                           ),
                           onSelected: (_) {
-                            _pane.pauseStream();
+                            _pane?.pauseStream();
                             setState(() => _current = i);
-                            WidgetsBinding.instance.addPostFrameCallback((_) => _pane.resumeStream());
+                            WidgetsBinding.instance.addPostFrameCallback((_) => _pane?.resumeStream());
                           },
                         ),
                       ),
