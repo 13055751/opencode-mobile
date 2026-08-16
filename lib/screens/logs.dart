@@ -81,6 +81,7 @@ class _LogsScreenState extends State<LogsScreen> {
       });
       Share.shareXFiles([XFile(file.path)], text: 'opencode 客户端日志');
     } catch (e) {
+      AppLog.instance.error('logs', 'export failed: $e');
       if (!mounted) return;
       setState(() => _logError = '导出失败: $e');
     }

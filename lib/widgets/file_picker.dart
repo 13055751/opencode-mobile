@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../logs.dart';
 import '../models.dart';
 
 /// Browses the server's filesystem and returns an absolute file path (or
@@ -45,6 +46,7 @@ class _ServerFilePickerPageState extends State<ServerFilePickerPage> {
         _loading = false;
       });
     } catch (e) {
+      AppLog.instance.error('picker', 'list files $dir failed: $e');
       if (!mounted) return;
       setState(() {
         _loading = false;

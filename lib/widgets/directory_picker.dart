@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../logs.dart';
 import '../models.dart';
 
 /// Full-screen server directory browser. Lets the user pick an existing
@@ -48,6 +49,7 @@ class _DirectoryPickerPageState extends State<DirectoryPickerPage> {
         _loading = false;
       });
     } catch (e) {
+      AppLog.instance.error('picker', 'load dir $_current failed: $e');
       if (!mounted) return;
       setState(() {
         _loading = false;
@@ -111,6 +113,7 @@ class _DirectoryPickerPageState extends State<DirectoryPickerPage> {
       _current = target;
       await _load();
     } catch (e) {
+      AppLog.instance.error('picker', 'create dir $target failed: $e');
       if (!mounted) return;
       setState(() => _busy = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('创建失败: $e')));

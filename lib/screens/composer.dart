@@ -67,6 +67,7 @@ class ChatActionsSheet extends StatelessWidget {
                   if (context.mounted) Navigator.of(context).pop();
                   onDeleted?.call();
                 } catch (e) {
+                  AppLog.instance.error('composer', 'delete session ${session.id} failed: $e');
                   if (context.mounted) {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('删除失败: $e')));
@@ -189,7 +190,9 @@ class _ComposerState extends State<Composer> {
     try {
       final c = await widget.api.listCommands();
       _commands = c.whereType<Map<String, dynamic>>().toList();
-    } catch (_) {}
+    } catch (e) {
+      AppLog.instance.error('composer', 'load commands failed: $e');
+    }
     _commandsLoaded = true;
   }
 
@@ -198,7 +201,9 @@ class _ComposerState extends State<Composer> {
     try {
       final a = await widget.api.listAgents();
       _agents = a.whereType<Map<String, dynamic>>().toList();
-    } catch (_) {}
+    } catch (e) {
+      AppLog.instance.error('composer', 'load agents failed: $e');
+    }
   }
 
   void _onChanged(String text) {

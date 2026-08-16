@@ -114,6 +114,7 @@ class _ChatScreenState extends State<ChatScreen> {
       );
       if (picked != null) _addSession(picked);
     } catch (e) {
+      AppLog.instance.error('chat', 'pick session failed: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('获取会话列表失败: $e')));
     }
@@ -358,6 +359,7 @@ class _ChatPaneState extends State<_ChatPane> {
     try {
       await widget.api.abort(widget.session.id);
     } catch (e) {
+      AppLog.instance.error('chat', 'abort failed: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('中断失败: $e')));
     }
@@ -533,6 +535,7 @@ class _ChatPaneState extends State<_ChatPane> {
         ),
       );
     } catch (e) {
+      AppLog.instance.error('chat', 'pick mode/model failed: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('获取模式/模型失败: $e')));
     }
@@ -624,6 +627,7 @@ class _ChatPaneState extends State<_ChatPane> {
         parts: parts,
       );
     } catch (e) {
+      AppLog.instance.error('chat', 'send failed: $e');
       if (!mounted) return;
       setState(() => _busy = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('发送失败: $e')));
