@@ -47,12 +47,14 @@ jobs:
           set -e
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
-            cat > android/keystore.properties <<EOF
-storeFile=release.keystore
-storePassword=$KEYSTORE_PASSWORD
-keyAlias=$KEY_ALIAS
-keyPassword=$KEY_PASSWORD
-EOF
+            mkdir -p android
+            echo "storeFile=release.keystore" > android/keystore.properties
+            echo "storePassword=$KEYSTORE_PASSWORD" >> android/keystore.properties
+            echo "keyAlias=$KEY_ALIAS" >> android/keystore.properties
+            echo "keyPassword=$KEY_PASSWORD" >> android/keystore.properties
+            ls -la android/app/release.keystore android/keystore.properties
+          else
+            echo "NO signing secrets - fallback to debug signing"
           fi
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
