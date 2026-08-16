@@ -181,6 +181,20 @@ class ChatMessage {
     );
   }
 
+  /// The messages endpoint returns WithParts items shaped `{info, parts}`,
+  /// where the id/role/sessionID live under [info]. This factory unwraps both
+  /// shapes so callers don't have to think about it.
+  factory ChatMessage.fromPageItem(Map<String, dynamic> j) {
+    final info = j['info'];
+    if (info is Map<String, dynamic>) {
+      return ChatMessage.fromJson({
+        ...info,
+        'parts': j['parts'] ?? info['parts'] ?? const [],
+      });
+    }
+    return ChatMessage.fromJson(j);
+  }
+
   static DateTime? _parseTime(dynamic t) {
     if (t is Map<String, dynamic>) {
       final c = t['created'];

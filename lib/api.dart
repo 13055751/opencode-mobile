@@ -78,8 +78,11 @@ class OpenCodeApi {
     }
   }
 
-  Future<List<Session>> listSessions({int limit = 50}) async {
-    final data = await _get('/session', {'limit': '$limit'});
+  Future<List<Session>> listSessions({int limit = 50, String? directory}) async {
+    final data = await _get('/session', {
+      'limit': '$limit',
+      if (directory != null && directory.isNotEmpty) 'directory': directory,
+    });
     if (data is List) {
       return data.whereType<Map<String, dynamic>>().map(Session.fromJson).toList();
     }
@@ -107,7 +110,7 @@ class OpenCodeApi {
   Future<List<FileEntry>> listFiles(String directory, {String path = ''}) async {
     final data = await _get('/file', {
       'directory': directory,
-      if (path.isNotEmpty) 'path': path,
+      'path': path,
     });
     final list = data is List
         ? data
@@ -129,10 +132,10 @@ class OpenCodeApi {
   Future<List<ChatMessage>> listMessages(String sessionID, {int limit = 100}) async {
     final data = await _get('/session/$sessionID/message', {'limit': '$limit'});
     if (data is List) {
-      return data.whereType<Map<String, dynamic>>().map(ChatMessage.fromJson).toList();
+      return data.whereType<Map<String, dynamic>>().map(ChatMessage.fromPageItem).toList();
     }
     if (data is Map && data['data'] is List) {
-      return (data['data'] as List).whereType<Map<String, dynamic>>().map(ChatMessage.fromJson).toList();
+      return (data['data'] as List).whereType<Map<String, dynamic>>().map(ChatMessage.fromPageItem).toList();
     }
     return [];
   }

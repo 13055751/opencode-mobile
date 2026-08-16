@@ -22,6 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loading = true;
   String? _error;
   bool _connected = false;
+  String? _projectDir;
 
   @override
   void initState() {
@@ -46,7 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
     try {
-      final list = await _api.listSessions(limit: 100);
+      final list = await _api.listSessions(limit: 100, directory: _projectDir);
       if (!mounted) return;
       setState(() {
         _sessions = list;
@@ -59,6 +60,53 @@ class _HomeScreenState extends State<HomeScreen> {
         _loading = false;
         _error = '加载失败: $e';
       });
+    }
+  }
+
+  Future<void> _selectProject() async {
+    final action = await showModalBottomSheet<_ProjectAction>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.folder_open_outlined),
+              title: const Text('浏览服务器目录'),
+              subtitle: Text(_projectDir ?? '还没选择项目，显示全部会话'),
+              onTap: () => Navigator.of(ctx).pop(_ProjectAction.browse),
+            ),
+            if (_projectDir != null)
+              ListTile(
+                leading: const Icon(Icons.clear_all_outlined),
+                title: const Text('显示全部会话'),
+                onTap: () => Navigator.of(ctx).pop(_ProjectAction.all),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    switch (action) {
+      case _ProjectAction.browse:
+        final picked = await Navigator.of(context).push<String>(
+          MaterialPageRoute(
+            builder: (_) => DirectoryPickerPage(
+              api: _api,
+              initialDirectory: _projectDir ?? '/',
+            ),
+          ),
+        );
+        if (picked == null || !mounted) return;
+        setState(() => _projectDir = picked);
+        await _refresh();
+        break;
+      case _ProjectAction.all:
+        setState(() => _projectDir = null);
+        await _refresh();
+        break;
+      case null:
+        break;
     }
   }
 
@@ -78,13 +126,15 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _newSession() async {
     final result = await showDialog<_NewSessionInput>(
       context: context,
-      builder: (ctx) => _NewSessionDialog(api: _api),
+      builder: (ctx) => _NewSessionDialog(api: _api, initialDirectory: _projectDir),
     );
     if (result == null || !mounted) return;
     try {
       final s = await _api.createSession(title: result.title, directory: result.directory);
       if (!mounted) return;
-      _sessions.insert(0, s);
+      if (_projectDir != null) {
+        setState(() => _sessions.insert(0, s));
+      }
       await _openChat(s);
     } catch (e) {
       if (!mounted) return;
@@ -106,6 +156,11 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('OpenCode'),
         actions: [
           IconButton(
+            onPressed: _selectProject,
+            icon: const Icon(Icons.folder_open_outlined),
+            tooltip: '选择项目',
+          ),
+          IconButton(
             onPressed: _openConfig,
             icon: const Icon(Icons.settings_outlined),
             tooltip: '服务器设置',
@@ -124,7 +179,38 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: _refresh,
-        child: _buildBody(),
+        child: Column(
+          children: [
+            if (_projectDir != null) _projectBar(),
+            Expanded(child: _buildBody()),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _projectBar() {
+    return Material(
+      color: const Color(0xFF6C5CE7).withValues(alpha: 0.12),
+      child: InkWell(
+        onTap: _selectProject,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              const Icon(Icons.folder_outlined, size: 16, color: Colors.white54),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _projectDir!,
+                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const Icon(Icons.chevron_right, size: 16, color: Colors.white38),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -247,9 +333,12 @@ class _NewSessionInput {
   _NewSessionInput({this.title, this.directory});
 }
 
+enum _ProjectAction { browse, all }
+
 class _NewSessionDialog extends StatefulWidget {
   final OpenCodeApi api;
-  const _NewSessionDialog({required this.api});
+  final String? initialDirectory;
+  const _NewSessionDialog({required this.api, this.initialDirectory});
 
   @override
   State<_NewSessionDialog> createState() => _NewSessionDialogState();
@@ -257,7 +346,7 @@ class _NewSessionDialog extends StatefulWidget {
 
 class _NewSessionDialogState extends State<_NewSessionDialog> {
   final _titleCtrl = TextEditingController();
-  final _dirCtrl = TextEditingController();
+  late final _dirCtrl = TextEditingController(text: widget.initialDirectory ?? '');
 
   @override
   void dispose() {
