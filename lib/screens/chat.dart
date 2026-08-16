@@ -751,28 +751,6 @@ class _QItem {
 enum _SheetSection { agent, model, variant }
 
 class _SectionSheet extends StatefulWidget {
-  final List<Map<String, dynamic>> agents;
-  final List<Map<String, dynamic>> providers;
-  final String? agent;
-  final String? provider;
-  final String? modelID;
-  final String? variant;
-  final void Function(String? agent, String? provider, String? modelId, String? variant) onDone;
-  const _ModeModelSheet({
-    required this.agents,
-    required this.providers,
-    this.agent,
-    this.provider,
-    this.modelID,
-    this.variant,
-    required this.onDone,
-  });
-
-  @override
-  State<_ModeModelSheet> createState() => _ModeModelSheetState();
-}
-
-class _SectionSheet extends StatefulWidget {
   final _SheetSection section;
   final List<Map<String, dynamic>> agents;
   final List<Map<String, dynamic>> providers;
