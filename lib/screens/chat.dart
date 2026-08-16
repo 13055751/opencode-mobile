@@ -410,11 +410,13 @@ class _ChatPaneState extends State<_ChatPane> {
         }
         break;
       case 'message.part.updated':
-        final mid = esid ?? data['messageID'] as String?;
         final part = data['part'];
-        if (part is Map<String, dynamic> && mid != null) {
-          _updatePart(mid, part);
-          if (_nearBottom) _jumpBottom();
+        if (part is Map<String, dynamic>) {
+          final mid = part['messageID'] as String? ?? esid;
+          if (mid != null) {
+            _updatePart(esid ?? widget.session.id, part);
+            if (_nearBottom) _jumpBottom();
+          }
         }
         break;
       case 'message.part.delta':
@@ -592,59 +594,89 @@ class _ChatPaneState extends State<_ChatPane> {
       if (i == -1) {
         _messages.add(msg);
       } else {
-        _messages[i] = msg;
+        final old = _messages[i];
+        if (msg.parts.isEmpty && old.parts.isNotEmpty) {
+          _messages[i] = ChatMessage(
+            id: msg.id,
+            role: msg.role,
+            sessionID: msg.sessionID,
+            agent: msg.agent,
+            modelID: msg.modelID,
+            parts: old.parts,
+          );
+        } else {
+          _messages[i] = msg;
+        }
       }
     });
   }
 
+  int _indexOfMessage(String messageID) => _messages.indexWhere((m) => m.id == messageID);
+
   void _updatePart(String sessionID, Map<String, dynamic> part) {
     final p = Part.fromJson(part);
+    final messageID = part['messageID'] as String? ?? '';
     setState(() {
-      for (var i = 0; i < _messages.length; i++) {
+      final i = _messages.indexWhere((m) => m.id == messageID);
+      if (i != -1) {
         final m = _messages[i];
-        if (m.sessionID != sessionID) continue;
-        final found = m.parts.indexWhere((x) => x.callID == p.callID && x.raw['id'] == p.raw['id']);
+        final newParts = [...m.parts];
+        final found = newParts.indexWhere((x) => x.raw['id'] == p.raw['id']);
         if (found != -1) {
-          final newParts = [...m.parts];
           newParts[found] = p;
-          _messages[i] = ChatMessage(
-            id: m.id,
-            role: m.role,
-            sessionID: m.sessionID,
-            agent: m.agent,
-            modelID: m.modelID,
-            parts: newParts,
-          );
-          return;
+        } else {
+          newParts.add(p);
         }
+        _messages[i] = ChatMessage(
+          id: m.id,
+          role: m.role,
+          sessionID: m.sessionID,
+          agent: m.agent,
+          modelID: m.modelID,
+          parts: newParts,
+        );
+      } else if (messageID.isNotEmpty) {
+        _messages.add(ChatMessage(
+          id: messageID,
+          role: 'assistant',
+          sessionID: sessionID,
+          parts: [p],
+        ));
       }
     });
   }
 
   void _appendPartText(String mid, String pid, String delta) {
     setState(() {
-      for (var i = 0; i < _messages.length; i++) {
-        final m = _messages[i];
-        if (m.id != mid) continue;
-        final found = m.parts.indexWhere((x) => x.raw['id'] == pid);
-        if (found != -1) {
-          final parts = [...m.parts];
-          final old = parts[found];
-          final newText = (old.text ?? '') + delta;
-          final raw = {...old.raw, 'text': newText};
-          parts[found] = Part(kind: PartKind.text, text: newText, raw: raw);
-          _messages[i] = ChatMessage(id: m.id, role: m.role, sessionID: m.sessionID, parts: parts);
-          return;
-        }
+      var i = _indexOfMessage(mid);
+      if (i == -1) {
         final textRaw = {'id': pid, 'type': 'text', 'text': delta};
-        _messages[i] = ChatMessage(
-          id: m.id,
-          role: m.role,
-          sessionID: m.sessionID,
-          parts: [...m.parts, Part(kind: PartKind.text, text: delta, raw: textRaw)],
-        );
+        _messages.add(ChatMessage(
+          id: mid,
+          role: 'assistant',
+          sessionID: widget.session.id,
+          parts: [Part(kind: PartKind.text, text: delta, raw: textRaw)],
+        ));
         return;
       }
+      final m = _messages[i];
+      final found = m.parts.indexWhere((x) => x.raw['id'] == pid);
+      if (found != -1) {
+        final parts = [...m.parts];
+        final old = parts[found];
+        final newText = (old.text ?? '') + delta;
+        final raw = {...old.raw, 'text': newText};
+        parts[found] = Part(kind: PartKind.text, text: newText, raw: raw);
+        _messages[i] = ChatMessage(id: m.id, role: m.role, sessionID: m.sessionID, parts: parts);
+        return;
+      }
+      final textRaw = {'id': pid, 'type': 'text', 'text': delta};
+      _messages[i] = ChatMessage(
+        id: m.id,
+        role: m.role,
+        sessionID: m.sessionID,
+        parts: [...m.parts, Part(kind: PartKind.text, text: delta, raw: textRaw)],
+      );
     });
   }
 
