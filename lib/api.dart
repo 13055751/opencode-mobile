@@ -245,15 +245,15 @@ class OpenCodeApi {
     });
   }
 
-  /// Lists available slash commands from the server (GET /instance/command).
+  /// Lists available slash commands from the server (GET /command).
   Future<List<dynamic>> listCommands() async {
-    final data = await _get('/instance/command');
+    final data = await _get('/command');
     return data is List ? data : [];
   }
 
-  /// Lists available agents (modes) from the server (GET /instance/agent).
+  /// Lists available agents (modes) from the server (GET /agent).
   Future<List<dynamic>> listAgents() async {
-    final data = await _get('/instance/agent');
+    final data = await _get('/agent');
     return data is List ? data : [];
   }
 
@@ -350,20 +350,27 @@ class OpenCodeApi {
   }
 
   Map<String, dynamic>? _parseEventBlock(String block) {
-    String? event;
     String? data;
     for (final line in block.split('\n')) {
-      if (line.startsWith('event:')) event = line.substring(6).trim();
       if (line.startsWith('data:')) data = line.substring(5).trim();
     }
-    if (event == null) return null;
+    if (data == null) return null;
     dynamic payload;
     try {
-      payload = jsonDecode(data ?? '{}');
+      payload = jsonDecode(data);
     } catch (_) {
-      payload = <String, dynamic>{};
+      return null;
     }
-    return <String, dynamic>{'type': event, 'data': payload};
+    if (payload is! Map<String, dynamic>) return null;
+    final inner = (payload['payload'] is Map<String, dynamic>)
+        ? payload['payload'] as Map<String, dynamic>
+        : payload;
+    final type = inner['type'];
+    if (type is! String || type.isEmpty) return null;
+    final properties = (inner['properties'] is Map<String, dynamic>)
+        ? inner['properties'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    return <String, dynamic>{'type': type, 'data': properties};
   }
 
   void dispose() => _client.close();
