@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../logs.dart';
 import '../models.dart';
 import '../widgets/file_picker.dart';
 
@@ -246,6 +247,7 @@ class _ComposerState extends State<Composer> {
       ),
     );
     if (path == null) return;
+    AppLog.instance.state('composer', 'attach file $path');
     setState(() {
       _attachments.add({
         'path': path,
@@ -340,6 +342,7 @@ class _ComposerState extends State<Composer> {
       if (text.isNotEmpty) {'type': 'text', 'text': text},
     ];
     widget.onSend(text, parts);
+    AppLog.instance.state('composer', 'send text=${text.length}ch attachments=${_attachments.length}');
     _controller.clear();
     setState(() {
       _attachments.clear();

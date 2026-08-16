@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api.dart';
 import '../config.dart';
+import '../logs.dart';
 
 class ServerConfigScreen extends StatefulWidget {
   final AppConfig config;
@@ -46,6 +47,7 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
 
   Future<void> _save() async {
     final config = _build();
+    AppLog.instance.state('setup', 'save server config ${config.baseUrl}');
     final p = await SharedPreferences.getInstance();
     await config.save(p);
     if (!mounted) return;
@@ -56,6 +58,7 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
     setState(() => _testing = true);
     final config = _build();
     final api = OpenCodeApi(baseUrl: config.baseUrl, password: config.password);
+    AppLog.instance.state('setup', 'test server ${config.baseUrl}');
     final ok = await api.checkHealth();
     if (!mounted) return;
     setState(() => _testing = false);

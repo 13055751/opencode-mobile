@@ -3,9 +3,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api.dart';
 import 'config.dart';
+import 'logs.dart';
 import 'screens/home.dart';
 
 void main() {
+  AppLog.instance.installGlobalHandlers();
   runApp(const OpenCodeApp());
 }
 

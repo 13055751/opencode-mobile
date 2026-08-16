@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api.dart';
 import '../config.dart';
+import '../logs.dart';
 import '../models.dart';
 import '../widgets/directory_picker.dart';
 import 'chat.dart';
@@ -32,6 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _refresh() async {
+    AppLog.instance.state('home', 'refresh dir=${_projectDir ?? '-'}');
     setState(() {
       _loading = true;
       _error = null;
@@ -39,6 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final ok = await _api.checkHealth();
     if (!mounted) return;
     if (!ok) {
+      AppLog.instance.error('home', 'health check failed at ${widget.config.baseUrl}');
       setState(() {
         _loading = false;
         _connected = false;
@@ -49,6 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final list = await _api.listSessions(limit: 100, directory: _projectDir);
       if (!mounted) return;
+      AppLog.instance.state('home', 'sessions=${list.length} dir=${_projectDir ?? '-'}');
       setState(() {
         _sessions = list;
         _connected = true;
@@ -56,6 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     } catch (e) {
       if (!mounted) return;
+      AppLog.instance.error('home', 'list sessions failed: $e');
       setState(() {
         _loading = false;
         _error = '加载失败: $e';
@@ -191,24 +196,31 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (ctx) => _NewSessionDialog(api: _api, initialDirectory: _projectDir),
     );
     if (result == null || !mounted) return;
+    AppLog.instance.state('home', 'create session title=${result.title ?? '-'} dir=${result.directory ?? '-'}');
     try {
       final s = await _api.createSession(title: result.title, directory: result.directory);
       if (!mounted) return;
+      AppLog.instance.state('home', 'created session ${s.id}');
       if (_projectDir != null) {
         setState(() => _sessions.insert(0, s));
       }
       await _openChat(s);
     } catch (e) {
       if (!mounted) return;
+      AppLog.instance.error('home', 'create session failed: $e');
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('创建失败: $e')));
     }
   }
 
   Future<void> _openChat(Session s) async {
+    AppLog.instance.state('home', 'open chat ${s.id}');
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => ChatScreen(api: _api, session: s)),
     );
-    if (changed == true && mounted) _refresh();
+    if (changed == true && mounted) {
+      AppLog.instance.state('home', 'session deleted in chat, refresh');
+      _refresh();
+    }
   }
 
   @override

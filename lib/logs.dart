@@ -1,5 +1,8 @@
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:ui' show PlatformDispatcher;
+
+import 'package:flutter/foundation.dart';
 
 typedef LogListener = void Function();
 
@@ -62,6 +65,24 @@ class AppLog {
 
   /// Renders all entries as text for copy/export.
   String export() => _entries.map((e) => e.toLine()).join('\n');
+
+  /// Installs global Flutter/platform error handlers that funnel into the log.
+  static void installGlobalHandlers() {
+    final original = FlutterError.onError;
+    FlutterError.onError = (details) {
+      AppLog.instance.error('flutter', details.exceptionAsString());
+      final stack = details.stack?.toString() ?? '';
+      if (stack.isNotEmpty) {
+        AppLog.instance.error('flutter', stack.split('\n').take(8).join('\n'));
+      }
+      original?.call(details);
+    };
+    PlatformDispatcher.instance.onError = (error, stack) {
+      AppLog.instance.error('platform', '$error');
+      AppLog.instance.error('platform', stack.toString());
+      return true;
+    };
+  }
 }
 
 /// JSON with one-line formatting for logging.

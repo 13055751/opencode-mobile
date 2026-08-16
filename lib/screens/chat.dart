@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../logs.dart';
 import '../models.dart';
 import '../widgets/permission_dialog.dart';
 import '../widgets/question_dialog.dart';
@@ -274,6 +275,7 @@ class _ChatPaneState extends State<_ChatPane> {
   }
 
   Future<void> _loadNewest() async {
+    AppLog.instance.state('chat', 'load newest sid=${widget.session.id}');
     setState(() {
       _loading = true;
       _messages.clear();
@@ -282,6 +284,7 @@ class _ChatPaneState extends State<_ChatPane> {
     try {
       final page = await widget.api.listMessagesPage(widget.session.id);
       if (!mounted) return;
+      AppLog.instance.state('chat', 'loaded ${page.messages.length} messages, before=${page.before ?? '-'}');
       setState(() {
         _messages.addAll(page.messages);
         _nextCursor = page.before;
@@ -290,6 +293,7 @@ class _ChatPaneState extends State<_ChatPane> {
       _jumpBottom();
     } catch (e) {
       if (!mounted) return;
+      AppLog.instance.error('chat', 'load newest failed: $e');
       setState(() => _loading = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('加载消息失败: $e')));
     }
@@ -303,6 +307,7 @@ class _ChatPaneState extends State<_ChatPane> {
       final page = await widget.api.listMessagesPage(widget.session.id, before: cursor);
       if (!mounted) return;
       final count = page.messages.length;
+      AppLog.instance.state('chat', 'load older before=$cursor → ${page.messages.length} msgs, next=${page.before ?? '-'}');
       setState(() {
         // older messages go to the front (they load above the current view)
         _messages.insertAll(0, page.messages);
@@ -318,6 +323,7 @@ class _ChatPaneState extends State<_ChatPane> {
       }
     } catch (e) {
       if (!mounted) return;
+      AppLog.instance.error('chat', 'load older failed: $e');
       setState(() => _loadingOlder = false);
     }
   }
@@ -369,7 +375,11 @@ class _ChatPaneState extends State<_ChatPane> {
     final type = event['type'] as String? ?? '';
     final data = (event['data'] as Map<String, dynamic>?) ?? {};
     final esid = data['sessionID'] as String?;
-    if (esid != null && esid != widget.session.id) return;
+    if (esid != null && esid != widget.session.id) {
+      AppLog.instance.sse('chat', 'drop event $type for other session $esid');
+      return;
+    }
+    AppLog.instance.sse('chat', 'event $type sid=${esid ?? '-'}');
 
     switch (type) {
       case 'session.status':
@@ -591,6 +601,8 @@ class _ChatPaneState extends State<_ChatPane> {
   }
 
   Future<void> _send(String text, List<Map<String, dynamic>> parts) async {
+    AppLog.instance.state('chat',
+        'send sid=${widget.session.id} text=${text.length}ch parts=${parts.length} agent=$_agentOverride model=$_modelProvider/$_modelID variant=$_variantOverride');
     setState(() {
       _busy = true;
       _messages.add(ChatMessage(
