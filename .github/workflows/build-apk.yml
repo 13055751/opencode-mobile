@@ -41,6 +41,19 @@ jobs:
           echo "=== updated wrapper properties ==="
           cat android/gradle/wrapper/gradle-wrapper.properties
 
+      - name: Diagnose secrets
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          echo "KS_LEN=${#KEYSTORE_BASE64}"
+          echo "KSP_LEN=${#KEYSTORE_PASSWORD}"
+          echo "ALIAS_LEN=${#KEY_ALIAS}"
+          echo "KP_LEN=${#KEY_PASSWORD}"
+
       - name: Setup signing key
         shell: bash
         run: |
