@@ -330,20 +330,20 @@ class _ChatPaneState extends State<_ChatPane> {
   }
 
   void _onScroll() {
-    if (_scroll.hasClients &&
-        _scroll.position.pixels > _scroll.position.maxScrollExtent - 300) {
+    if (_scroll.hasClients && _scroll.position.pixels < 300) {
       _loadOlder();
     }
   }
 
   void _trackBottom() {
-    final near = _scroll.hasClients && _scroll.position.pixels < 120;
+    final near = _scroll.hasClients &&
+        _scroll.position.pixels > _scroll.position.maxScrollExtent - 120;
     if (near != _nearBottom) setState(() => _nearBottom = near);
   }
 
   void _jumpBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scroll.hasClients) _scroll.jumpTo(0);
+      if (_scroll.hasClients) _scroll.jumpTo(_scroll.position.maxScrollExtent);
     });
   }
 
@@ -733,7 +733,6 @@ class _ChatPaneState extends State<_ChatPane> {
                       children: [
                         ListView.builder(
                           controller: _scroll,
-                          reverse: true,
                           padding: const EdgeInsets.all(12),
                           itemCount: _messages.length,
                           itemBuilder: (context, i) => MessageBubble(message: _messages[i]),
